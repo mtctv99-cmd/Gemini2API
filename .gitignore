@@ -13,8 +13,8 @@
 /build/
 
 # Cookie & session data — contains real Google account tokens
-data/cookies.json
-data/browser_profile/
+geminigo/data/cookies.json
+geminigo/data/browser_profile/
 
 # IDE
 .idea/
