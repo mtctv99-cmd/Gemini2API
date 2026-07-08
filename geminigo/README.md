@@ -313,9 +313,9 @@ Mở `http://localhost:8081` trong trình duyệt:
 ## Cấu trúc mã nguồn
 
 ```
-D:\API_gemini\
+Gemini2API/
 ├── .gitignore
-└── geminigo\
+└── geminigo/
     ├── main.go          # Entry point, graceful shutdown
     ├── config.go        # Config struct, MODELS map, ModelCfg
     ├── server.go        # HTTP handlers (models, chat completions, streaming)
@@ -326,7 +326,7 @@ D:\API_gemini\
     ├── multimodal.go    # Image upload, Imagen support
     ├── stats.go         # Request/token statistics
     ├── go.mod           # Go module
-    └── README.md        # Tài liệu (file này)
+    └── README.md        # Tài liệu
 ```
 
 ---
