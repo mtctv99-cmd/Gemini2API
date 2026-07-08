@@ -377,9 +377,11 @@ func handleRoot(w http.ResponseWriter, r *http.Request) {
 	totalAccounts := len(pool.Accounts)
 	pool.mu.RUnlock()
 
-	cookieStatus := "Chưa cấu hình (Chạy ẩn danh)"
+	cookieStatus := "Chưa cấu hình"
+	cookieClass := "status-badge error"
 	if totalAccounts > 0 {
 		cookieStatus = fmt.Sprintf("Đã cấu hình %d tài khoản", totalAccounts)
+		cookieClass = "status-badge ok"
 	}
 
 	STATS.mu.RLock()
@@ -387,103 +389,125 @@ func handleRoot(w http.ResponseWriter, r *http.Request) {
 	totalTokens := STATS.TotalTokens
 	lastReqAt := STATS.LastRequestAt
 	if lastReqAt == "" {
-		lastReqAt = "Chưa có request"
+		lastReqAt = "—"
+	}
+	// Format last request time relative
+	lastReqDisplay := lastReqAt
+	if parsed, err := time.Parse("2006-01-02 15:04:05", lastReqAt); err == nil {
+		diff := time.Since(parsed)
+		if diff < time.Minute {
+			lastReqDisplay = "Vài giây trước"
+		} else if diff < time.Hour {
+			lastReqDisplay = fmt.Sprintf("%d phút trước", int(diff.Minutes()))
+		} else {
+			lastReqDisplay = fmt.Sprintf("%d giờ trước", int(diff.Hours()))
+		}
 	}
 	STATS.mu.RUnlock()
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = fmt.Fprintf(w, `<!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
-    <meta charset="utf-8">
-    <title>GeminiGo Dashboard</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #1e293b; }
-        .container { max-width: 850px; margin: 50px auto; background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; }
-        h1 { color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-top: 0; display: flex; align-items: center; gap: 10px; font-size: 28px; }
-        .badge { background: #3b82f6; color: white; font-size: 12px; padding: 4px 10px; border-radius: 9999px; font-weight: normal; }
-        .status-box { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 25px 0; }
-        .stats-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 25px 0; border-top: 1px solid #f1f5f9; padding-top: 25px; }
-        .status-card { padding: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; transition: transform 0.2s; }
-        .status-card:hover { transform: translateY(-2px); }
-        .status-card h3 { margin: 0 0 8px 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
-        .status-card p { margin: 0; font-size: 22px; font-weight: 700; color: #3b82f6; }
-        .status-card.active p { color: #10b981; }
-        .status-card.err p { color: #f59e0b; }
-        .btn-group { display: flex; gap: 15px; margin-top: 25px; }
-        form { margin-top: 35px; border-top: 1px dashed #e2e8f0; padding-top: 25px; }
-        label { display: block; font-weight: 600; margin-bottom: 10px; color: #334155; }
-        textarea { width: 100%%; height: 110px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: monospace; box-sizing: border-box; resize: vertical; background: #fafafa; font-size: 13px; }
-        textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
-        button, .btn { background: #2563eb; color: white; border: none; padding: 14px 28px; font-size: 15px; font-weight: 600; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; text-align: center; transition: background 0.2s, box-shadow 0.2s; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2); }
-        button:hover, .btn:hover { background: #1d4ed8; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3); }
-        .btn-secondary { background: #10b981; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2); }
-        .btn-secondary:hover { background: #059669; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3); }
-        .step-box { margin-top: 30px; padding: 25px; background: #f0f9ff; border-left: 5px solid #0284c7; border-radius: 8px; }
-        .step-box h4 { margin: 0 0 12px 0; color: #0369a1; font-size: 16px; font-weight: 700; }
-        .step-box ol { margin: 0; padding-left: 20px; color: #075985; line-height: 1.7; font-size: 14.5px; }
-        .step-box li { margin-bottom: 8px; }
-        .step-box li:last-child { margin-bottom: 0; }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GeminiGo</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu,sans-serif;background:#0a0a0b;color:#e4e4e7;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:16px}
+.container{width:100%%;max-width:720px;background:#141416;border-radius:20px;border:1px solid #222225;padding:32px;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}
+h1{font-size:20px;font-weight:600;letter-spacing:-0.01em;display:flex;align-items:center;gap:10px;padding-bottom:20px;border-bottom:1px solid #222225;margin-bottom:24px}
+h1 span{color:#a1a1aa;font-weight:400;font-size:12px;background:#1a1a1d;padding:2px 10px;border-radius:999px;border:1px solid #27272a}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px}
+.card{background:#1a1a1d;border-radius:12px;border:1px solid #27272a;padding:16px;transition:border-color .15s}
+.card:hover{border-color:#3f3f46}
+.card-label{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:#71717a;margin-bottom:6px}
+.card-value{font-size:22px;font-weight:600;letter-spacing:-0.02em;color:#fafafa}
+.card-value small{font-size:14px;font-weight:400;color:#71717a}
+.status-badge{display:inline-flex;align-items:center;gap:6px}
+.status-badge::before{content:"";width:7px;height:7px;border-radius:50%%;display:inline-block}
+.status-badge.ok::before{background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.4)}
+.status-badge.error::before{background:#a3a3a3;box-shadow:none}
+.card-value .status-badge.ok{color:#22c55e}
+.card-value .status-badge.error{color:#a1a1aa}
+.stats{margin-bottom:24px}
+.stats-label{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:#71717a;margin-bottom:10px}
+.stat-row{display:flex;gap:12px}
+.stat-item{flex:1;background:#1a1a1d;border-radius:10px;border:1px solid #27272a;padding:14px 16px}
+.stat-item .num{font-size:20px;font-weight:600;color:#fafafa}
+.stat-item .desc{font-size:12px;color:#71717a;margin-top:2px}
+.step-box{background:#1a1a1d;border-radius:12px;border:1px solid #27272a;padding:20px;margin-bottom:20px}
+.step-box h4{font-size:13px;font-weight:600;color:#d4d4d8;margin-bottom:12px}
+.step-box ol{padding-left:18px;color:#a1a1aa;font-size:13px;line-height:1.7}
+.step-box li{margin-bottom:6px}
+.step-box li:last-child{margin-bottom:0}
+.actions{display:flex;gap:10px;margin-bottom:24px}
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 20px;font-size:14px;font-weight:500;border-radius:10px;cursor:pointer;text-decoration:none;border:none;transition:background .15s,box-shadow .15s}
+.btn-primary{background:#2563eb;color:#fff}
+.btn-primary:hover{background:#2563ebdd;box-shadow:0 0 20px rgba(37,99,235,.25)}
+.btn-success{background:#16a34a;color:#fff}
+.btn-success:hover{background:#16a34add;box-shadow:0 0 20px rgba(22,163,74,.2)}
+.cookie-section{border-top:1px solid #222225;padding-top:20px;margin-top:4px}
+.cookie-section label{display:block;font-size:13px;font-weight:500;color:#d4d4d8;margin-bottom:10px}
+.cookie-section textarea{width:100%%;height:90px;padding:10px 12px;border:1px solid #27272a;border-radius:10px;background:#1a1a1d;color:#e4e4e7;font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-size:12px;resize:vertical;box-sizing:border-box;transition:border-color .15s}
+.cookie-section textarea:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+.cookie-section textarea::placeholder{color:#52525b}
+.cookie-section button{margin-top:10px}
+.footer{margin-top:24px;padding-top:16px;border-top:1px solid #222225;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#52525b}
+.footer a{color:#71717a;text-decoration:none}
+.footer a:hover{color:#a1a1aa}
+@media(max-width:540px){.container{padding:20px;border-radius:16px}.grid{grid-template-columns:1fr}.stat-row{flex-direction:column}.actions{flex-direction:column}}
+</style>
 </head>
 <body>
-    <div class="container">
-        <h1>GeminiGo Control Center <span class="badge">PRO v2.0</span></h1>
+<div class="container">
+<h1>GeminiGo <span>v2.0</span></h1>
 
-        <div class="status-box">
-            <div class="status-card">
-                <h3>Phiên bản</h3>
-                <p>2.0.0-geminigo</p>
-            </div>
-            <div class="status-card %s">
-                <h3>Trạng thái Cookie</h3>
-                <p>%s</p>
-            </div>
-        </div>
+<div class="grid">
+<div class="card"><div class="card-label">Phiên bản</div><div class="card-value">2.0.0</div></div>
+<div class="card"><div class="card-label">Cookie</div><div class="card-value"><span class="%s">%s</span></div></div>
+</div>
 
-        <div class="stats-box">
-            <div class="status-card">
-                <h3>Tổng số Request</h3>
-                <p>%d</p>
-            </div>
-            <div class="status-card">
-                <h3>Sản lượng Tokens</h3>
-                <p>%d</p>
-            </div>
-            <div class="status-card">
-                <h3>Request cuối cùng</h3>
-                <p style="font-size: 16px; color: #475569; padding-top: 6px;">%s</p>
-            </div>
-        </div>
+<div class="stats">
+<div class="stats-label">Thống kê</div>
+<div class="stat-row">
+<div class="stat-item"><div class="num">%d</div><div class="desc">Tổng request</div></div>
+<div class="stat-item"><div class="num">%d</div><div class="desc">Tokens</div></div>
+<div class="stat-item"><div class="num">%s</div><div class="desc">Gần nhất</div></div>
+</div>
+</div>
 
-        <div class="step-box">
-            <h4>Quy trình Auto-Login & Trích xuất Cookie tự động:</h4>
-            <ol>
-                <li>Nhấn nút <strong>Tự động kết nối Trình duyệt</strong> để kích hoạt.</li>
-                <li>Hệ thống tự động tìm và khởi chạy một tab trình duyệt Chrome/Edge độc lập hướng thẳng tới Google Gemini.</li>
-                <li>Bạn tiến hành Đăng nhập tài khoản Google của bạn trên tab trình duyệt đó.</li>
-                <li>Khi đăng nhập thành công, Server sẽ tự động phát hiện cookie bảo mật, lưu trữ cấu hình và <strong>tự động đóng trình duyệt đó lập tức</strong>. Trạng thái Dashboard sẽ chuyển sang kích hoạt thành công.</li>
-            </ol>
-        </div>
+<div class="step-box">
+<h4>Cách lấy Cookie tự động</h4>
+<ol>
+<li>Nhấn nút <strong>Tự động kết nối</strong> bên dưới.</li>
+<li>Hệ thống mở tab Chrome/Edge riêng, chuyển hướng tới <strong>gemini.google.com</strong>.</li>
+<li>Đăng nhập tài khoản Google trên tab đó.</li>
+<li>Cookie tự động được phát hiện và lưu lại. Trình duyệt tự đóng.</li>
+</ol>
+</div>
 
-        <div class="btn-group">
-            <a href="/admin/auto-login" class="btn btn-secondary">Tự động kết nối Trình duyệt</a>
-        </div>
+<div class="actions">
+<a href="/admin/auto-login" class="btn btn-success">Tự động kết nối</a>
+</div>
 
-        <form action="/admin/save-cookie" method="POST">
-            <label for="cookie">Dán thủ công Cụm Cookie (Chỉ dùng khi tính năng Auto-Login không khởi động được trình duyệt):</label>
-            <textarea name="cookie" id="cookie" placeholder="SAPISID=xxx; __Secure-1PSID=xxx; ..."></textarea>
-            <button type="submit">Cập nhật thủ công</button>
-        </form>
-    </div>
+<div class="cookie-section">
+<label for="cookie">Dán thủ công cookie (khi Auto-Login không hoạt động)</label>
+<form action="/admin/save-cookie" method="POST">
+<textarea name="cookie" id="cookie" placeholder="SAPISID=xxx; __Secure-1PSID=xxx; ..."></textarea>
+<button type="submit" class="btn btn-primary">Cập nhật</button>
+</form>
+</div>
+
+<div class="footer">
+<a href="/v1/models">API Models</a>
+<span>gemini.google.com proxy</span>
+</div>
+</div>
 </body>
-</html>`, func() string {
-		if totalAccounts == 0 {
-			return "err"
-		}
-		return "active"
-	}(), cookieStatus, totalReqs, totalTokens, lastReqAt)
+</html>`, cookieClass, cookieStatus, totalReqs, totalTokens, lastReqDisplay)
 }
 
 func handleSaveCookie(w http.ResponseWriter, r *http.Request) {
